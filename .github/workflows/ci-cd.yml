@@ -1,0 +1,132 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+env:
+  DOTNET_VERSION: '10.0.x'
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build solution
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: "**/bin/Release/"
+          retention-days: 1
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build solution
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Run tests
+        run: dotnet test --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx"
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: "**/TestResults/*.trx"
+          retention-days: 7
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Publish application
+        run: |
+          dotnet publish Labyrinth/Labyrinth.csproj --configuration Release --output ./publish/linux-x64 --runtime linux-x64 --self-contained true
+          dotnet publish Labyrinth/Labyrinth.csproj --configuration Release --output ./publish/win-x64 --runtime win-x64 --self-contained true
+          dotnet publish Labyrinth/Labyrinth.csproj --configuration Release --output ./publish/osx-x64 --runtime osx-x64 --self-contained true
+
+      - name: Create release archives
+        run: |
+          cd publish
+          zip -r ../labyrinth-linux-x64.zip linux-x64
+          zip -r ../labyrinth-win-x64.zip win-x64
+          zip -r ../labyrinth-osx-x64.zip osx-x64
+
+      - name: Generate version tag
+        id: version
+        run: echo "tag=v1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.tag }}
+          body: |
+            ## Release ${{ steps.version.outputs.tag }}
+            
+            Automated release from CI/CD pipeline.
+            
+            **Commit:** ${{ github.sha }}
+            **Branch:** master
+            
+            ### Downloads
+            - labyrinth-linux-x64.zip - Linux x64 self-contained build
+            - labyrinth-win-x64.zip - Windows x64 self-contained build
+            - labyrinth-osx-x64.zip - macOS x64 self-contained build
+          files: |
+            labyrinth-linux-x64.zip
+            labyrinth-win-x64.zip
+            labyrinth-osx-x64.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
