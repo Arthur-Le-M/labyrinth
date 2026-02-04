@@ -2,10 +2,11 @@
 using Labyrinth.Crawl;
 using Labyrinth.Tiles;
 using System.Text;
+using System.Threading;
 
 namespace Labyrinth
 {
-    public partial class Labyrinth
+    public partial class Labyrinth : IDisposable
     {
         /// <summary>
         /// Labyrinth with walls, doors and collectable items.
@@ -68,10 +69,17 @@ namespace Labyrinth
         /// </summary>
         /// <returns>New crawler instance used to browse the labyrinth.</returns>
         public ICrawler NewCrawler() =>
-            new LabyrinthCrawler(_start.X, _start.Y, _tiles);
+            new LabyrinthCrawler(_start.X, _start.Y, _tiles, _stateLock);
+
+        public void Dispose()
+        {
+            _stateLock.Dispose();
+            GC.SuppressFinalize(this);
+        }
 
         private (int X, int Y) _start = (-1, -1);
 
         private readonly Tile[,] _tiles;
+        private readonly SemaphoreSlim _stateLock = new(1, 1);
     }
 }

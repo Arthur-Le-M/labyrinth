@@ -6,18 +6,18 @@ namespace Labyrinth
 {
     public partial class Labyrinth
     {
-        private class LabyrinthCrawler(int x, int y, Tile[,] tiles) : ICrawler
+        private class LabyrinthCrawler(int x, int y, Tile[,] tiles, SemaphoreSlim semaphore) : ICrawler
         {
             public int X => _x;
 
             public int Y => _y;
 
-            public Task<Type> FacingTileType => Task.FromResult(ProcessFacingTile((x, y, tile) => tile.GetType()));
+            public Task<Type> FacingTileType => ProcessFacingTileAsync((x, y, tile) => tile.GetType());
 
             Direction ICrawler.Direction => _direction;
 
             public Task<Inventory?> TryWalk(Inventory walkerInventory) => 
-                ProcessFacingTile((facingX, facingY, tile) =>
+                ProcessFacingTileAsync((facingX, facingY, tile) =>
                 {
                     Inventory? tileContent = null;
 
@@ -31,7 +31,7 @@ namespace Labyrinth
                         _x = facingX;
                         _y = facingY;
                     }
-                    return Task.FromResult(tileContent);
+                    return tileContent;
                 });
             
             private bool Open(Door door, Inventory walkerInventory)
@@ -53,18 +53,26 @@ namespace Labyrinth
             private bool IsOut(int pos, int dimension) =>
                 pos < 0 || pos >= _tiles.GetLength(dimension);
 
-            private T ProcessFacingTile<T>(Func<int, int, Tile, T> process)
+            private async Task<T> ProcessFacingTileAsync<T>(Func<int, int, Tile, T> process)
             {
-                int facingX = _x + _direction.DeltaX,
-                    facingY = _y + _direction.DeltaY;
+                await _semaphore.WaitAsync();
+                try
+                {
+                    int facingX = _x + _direction.DeltaX,
+                        facingY = _y + _direction.DeltaY;
 
-                return process(
-                    facingX, facingY,
-                    IsOut(facingX, dimension: 0) ||
-                    IsOut(facingY, dimension: 1)
-                        ? Outside.Singleton
-                        : _tiles[facingX, facingY]
-                 );
+                    return process(
+                         facingX, facingY,
+                        IsOut(facingX, dimension: 0) ||
+                        IsOut(facingY, dimension: 1)
+                            ? Outside.Singleton
+                            : _tiles[facingX, facingY]
+                     );
+                }
+                finally
+                {
+                    _semaphore.Release();
+                }
             }
 
             private int _x = x;
@@ -72,6 +80,7 @@ namespace Labyrinth
 
             private readonly Direction _direction = Direction.North;
             private readonly Tile[,] _tiles = tiles;
+            private readonly SemaphoreSlim _semaphore = semaphore;
         }
     }
 }
