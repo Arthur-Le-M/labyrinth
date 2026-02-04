@@ -1,0 +1,39 @@
+name: Check project version bump
+
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from PR
+        run: |
+          PR_VERSION=$(grep -oPm1 "(?<=<Version>)[^<]+" Labyrinth/Labyrinth.csproj)
+          echo "PR_VERSION=$PR_VERSION" >> $GITHUB_ENV
+
+      - name: Get version from master
+        run: |
+          git checkout origin/master
+          MASTER_VERSION=$(grep -oPm1 "(?<=<Version>)[^<]+" Labyrinth/Labyrinth.csproj)
+          echo "MASTER_VERSION=$MASTER_VERSION" >> $GITHUB_ENV
+
+      - name: Compare versions
+        run: |
+          echo "Master version: $MASTER_VERSION"
+          echo "PR version: $PR_VERSION"
+
+          if [ "$PR_VERSION" = "$MASTER_VERSION" ]; then
+            echo "❌ Version non modifiée"
+            exit 1
+          fi
+
+          echo "✅ Version modifiée"

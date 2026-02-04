@@ -100,9 +100,12 @@ jobs:
           zip -r ../labyrinth-win-x64.zip win-x64
           zip -r ../labyrinth-osx-x64.zip osx-x64
 
-      - name: Generate version tag
+      - name: Extract version from csproj
         id: version
-        run: echo "tag=v1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
+        run: |
+          VERSION=$(grep -oPm1 "(?<=<Version>)[^<]+" Labyrinth/Labyrinth.csproj)
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -114,6 +117,7 @@ jobs:
             
             Automated release from CI/CD pipeline.
             
+            **Version:** ${{ steps.version.outputs.version }}
             **Commit:** ${{ github.sha }}
             **Branch:** master
             
@@ -129,4 +133,3 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
