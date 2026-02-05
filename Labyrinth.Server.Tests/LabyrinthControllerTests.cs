@@ -3,7 +3,7 @@ using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using ApiTypes;
 
-namespace LabyrinthApi.Tests;
+namespace Labyrinth.Server.Tests;
 
 /// <summary>
 /// Integration tests for the LabyrinthController following TDD and AAA pattern.

@@ -1,4 +1,4 @@
-﻿
+﻿﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
 VisualStudioVersion = 18.1.11312.151
@@ -9,9 +9,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LabyrinthTest", "LabyrinthT
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ApiTypes", "ApiTypes\ApiTypes.csproj", "{A3003FE5-2C85-45CE-B51C-34C98DA5B120}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LabyrinthApi", "LabyrinthApi\LabyrinthApi.csproj", "{C0E21237-60B3-42E1-B585-3E44D383D022}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Labyrinth.Server", "Labyrinth.Server\Labyrinth.Server.csproj", "{C0E21237-60B3-42E1-B585-3E44D383D022}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LabyrinthApi.Tests", "LabyrinthApi.Tests\LabyrinthApi.Tests.csproj", "{73CA78CF-7C50-4750-BEB3-D1B18BD4D76C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Labyrinth.Server.Tests", "Labyrinth.Server.Tests\Labyrinth.Server.Tests.csproj", "{73CA78CF-7C50-4750-BEB3-D1B18BD4D76C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

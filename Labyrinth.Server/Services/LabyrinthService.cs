@@ -1,7 +1,7 @@
 using System.Text.Json;
 using ApiTypes;
 
-namespace LabyrinthApi.Services;
+namespace Labyrinth.Server.Services;
 
 /// <summary>
 /// Service implementation for managing labyrinths, loading from JSON files.

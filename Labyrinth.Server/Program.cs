@@ -1,4 +1,4 @@
-using LabyrinthApi.Services;
+using Labyrinth.Server.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,8 +11,10 @@ builder.Services.AddSingleton<ILabyrinthService, LabyrinthService>();
 // Add controllers
 builder.Services.AddControllers();
 
-// Add OpenAPI support
+// Add OpenAPI/Swagger support
 builder.Services.AddOpenApi();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
@@ -20,12 +22,17 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
 app.UseHttpsRedirection();
 
 // Map controllers
 app.MapControllers();
+
+// Health check endpoint
+app.MapGet("/health", () => Results.Ok());
 
 app.Run();
 

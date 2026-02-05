@@ -1,9 +1,9 @@
-namespace LabyrinthApi.Controllers;
+namespace Labyrinth.Server.Controllers;
 
 using Microsoft.AspNetCore.Mvc;
 using ApiTypes;
 using DTOs;
-using Services;
+using Labyrinth.Server.Services;
 
 /// <summary>
 /// Controller for managing crawler CRUD operations.

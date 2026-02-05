@@ -1,7 +1,7 @@
-using LabyrinthApi.Services;
+using Labyrinth.Server.Services;
 using ApiTypes;
 
-namespace LabyrinthApi.Tests;
+namespace Labyrinth.Server.Tests;
 
 /// <summary>
 /// Unit tests for LabyrinthService following TDD and AAA pattern.

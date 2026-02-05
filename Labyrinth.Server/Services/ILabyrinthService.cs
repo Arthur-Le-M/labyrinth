@@ -1,6 +1,6 @@
 using ApiTypes;
 
-namespace LabyrinthApi.Services;
+namespace Labyrinth.Server.Services;
 
 /// <summary>
 /// Service interface for managing labyrinth operations following Interface Segregation Principle.
