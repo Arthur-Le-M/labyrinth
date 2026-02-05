@@ -242,5 +242,108 @@ public class InventoryServiceTests
     }
     
     #endregion
+    
+    #region MoveRoomItemsToBag Tests
+    
+    [Test]
+    public void MoveRoomItemsToBag_WhenCrawlerDoesNotExist_ReturnsNull()
+    {
+        // Arrange
+        var crawlerId = Guid.NewGuid();
+        var moveRequests = new[] { new InventoryItem { Type = ItemType.Key, MoveRequired = true } };
+        _mockCrawlerService.Setup(s => s.GetCrawler(crawlerId)).Returns((Crawler?)null);
+        
+        // Act
+        var result = _inventoryService.MoveRoomItemsToBag(crawlerId, moveRequests);
+        
+        // Assert
+        Assert.That(result, Is.Null);
+    }
+    
+    [Test]
+    public void MoveRoomItemsToBag_WhenMoveRequiredTrue_MovesItemFromRoomToBag()
+    {
+        // Arrange
+        var crawlerId = Guid.NewGuid();
+        var roomItems = new[] { new InventoryItem { Type = ItemType.Key } };
+        var crawler = new Crawler 
+        { 
+            Id = crawlerId, 
+            Bag = Array.Empty<InventoryItem>(),
+            Items = roomItems 
+        };
+        _mockCrawlerService.Setup(s => s.GetCrawler(crawlerId)).Returns(crawler);
+        
+        var moveRequests = new[] { new InventoryItem { Type = ItemType.Key, MoveRequired = true } };
+        
+        // Act
+        var result = _inventoryService.MoveRoomItemsToBag(crawlerId, moveRequests);
+        
+        // Assert
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result, Has.Length.EqualTo(1));
+        Assert.That(crawler.Items, Is.Empty);
+    }
+    
+    [Test]
+    public void MoveRoomItemsToBag_WhenMoveRequiredFalse_DoesNotMoveItem()
+    {
+        // Arrange
+        var crawlerId = Guid.NewGuid();
+        var roomItems = new[] { new InventoryItem { Type = ItemType.Key } };
+        var crawler = new Crawler 
+        { 
+            Id = crawlerId, 
+            Bag = Array.Empty<InventoryItem>(),
+            Items = roomItems 
+        };
+        _mockCrawlerService.Setup(s => s.GetCrawler(crawlerId)).Returns(crawler);
+        
+        var moveRequests = new[] { new InventoryItem { Type = ItemType.Key, MoveRequired = false } };
+        
+        // Act
+        var result = _inventoryService.MoveRoomItemsToBag(crawlerId, moveRequests);
+        
+        // Assert
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result, Is.Empty);
+        Assert.That(crawler.Items, Has.Length.EqualTo(1));
+    }
+    
+    [Test]
+    public void MoveRoomItemsToBag_WhenMultipleItems_MovesOnlyMarkedItems()
+    {
+        // Arrange
+        var crawlerId = Guid.NewGuid();
+        var roomItems = new[] 
+        { 
+            new InventoryItem { Type = ItemType.Key },
+            new InventoryItem { Type = ItemType.Key },
+            new InventoryItem { Type = ItemType.Key }
+        };
+        var crawler = new Crawler 
+        { 
+            Id = crawlerId, 
+            Bag = Array.Empty<InventoryItem>(),
+            Items = roomItems 
+        };
+        _mockCrawlerService.Setup(s => s.GetCrawler(crawlerId)).Returns(crawler);
+        
+        var moveRequests = new[] 
+        { 
+            new InventoryItem { Type = ItemType.Key, MoveRequired = true },
+            new InventoryItem { Type = ItemType.Key, MoveRequired = false },
+            new InventoryItem { Type = ItemType.Key, MoveRequired = true }
+        };
+        
+        // Act
+        var result = _inventoryService.MoveRoomItemsToBag(crawlerId, moveRequests);
+        
+        // Assert
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result, Has.Length.EqualTo(2));
+        Assert.That(crawler.Items, Has.Length.EqualTo(1));
+    }
+    
+    #endregion
 }
-
