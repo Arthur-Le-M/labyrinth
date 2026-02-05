@@ -1,4 +1,5 @@
 using Labyrinth;
+using Labyrinth.Map;
 using Labyrinth.Tiles;
 using NUnit.Framework;
 using System.Collections.Concurrent;
@@ -12,6 +13,29 @@ namespace LabyrinthTest;
 /// </summary>
 public class SharedMapTests
 {
+    /// <summary>
+    /// Helper: Run concurrent tasks and wait for all to complete.
+    /// Reduces code duplication in concurrency tests.
+    /// </summary>
+    private static void RunConcurrentTasks(int taskCount, Action<int> action)
+    {
+        var tasks = Enumerable.Range(0, taskCount)
+            .Select(i => Task.Run(() => action(i)))
+            .ToArray();
+        Task.WaitAll(tasks);
+    }
+
+    /// <summary>
+    /// Helper: Run concurrent tasks without index and wait for all to complete.
+    /// </summary>
+    private static void RunConcurrentTasks(int taskCount, Action action)
+    {
+        var tasks = Enumerable.Range(0, taskCount)
+            .Select(_ => Task.Run(action))
+            .ToArray();
+        Task.WaitAll(tasks);
+    }
+
     /// <summary>
     /// Test: SharedMap stores and retrieves a tile
     /// Arrange: Create a SharedMap and a tile
@@ -99,25 +123,17 @@ public class SharedMapTests
         var map = new SharedMap();
         var threadCount = 10;
         var tilesPerThread = 100;
-        var tasks = new List<Task>();
 
         // Act
-        for (int t = 0; t < threadCount; t++)
+        RunConcurrentTasks(threadCount, threadId =>
         {
-            int threadId = t;
-            var task = Task.Run(() =>
+            for (int i = 0; i < tilesPerThread; i++)
             {
-                for (int i = 0; i < tilesPerThread; i++)
-                {
-                    var position = (threadId * tilesPerThread + i, 0);
-                    var tile = new Room();
-                    map.SetTile(position, tile);
-                }
-            });
-            tasks.Add(task);
-        }
-
-        Task.WaitAll(tasks.ToArray());
+                var position = (threadId * tilesPerThread + i, 0);
+                var tile = new Room();
+                map.SetTile(position, tile);
+            }
+        });
 
         // Assert
         for (int t = 0; t < threadCount; t++)
@@ -151,24 +167,17 @@ public class SharedMapTests
 
         var readCount = new ConcurrentDictionary<(int, int), int>();
         var threadCount = 10;
-        var tasks = new List<Task>();
 
         // Act
-        for (int t = 0; t < threadCount; t++)
+        RunConcurrentTasks(threadCount, () =>
         {
-            var task = Task.Run(() =>
+            foreach (var pos in testPositions)
             {
-                foreach (var pos in testPositions)
-                {
-                    var tile = map.GetTile(pos);
-                    readCount.AddOrUpdate(pos, 1, (_, count) => count + 1);
-                    Assert.That(tile, Is.Not.Null);
-                }
-            });
-            tasks.Add(task);
-        }
-
-        Task.WaitAll(tasks.ToArray());
+                var tile = map.GetTile(pos);
+                readCount.AddOrUpdate(pos, 1, (_, count) => count + 1);
+                Assert.That(tile, Is.Not.Null);
+            }
+        });
 
         // Assert
         foreach (var pos in testPositions)
@@ -188,49 +197,49 @@ public class SharedMapTests
     {
         // Arrange
         var map = new SharedMap();
-        var tasks = new List<Task>();
         var iterations = 100;
+        var readerCount = 5;
+        var writerCount = 5;
 
-        // Act
+        // Act: readers and writers run concurrently
+        var allTasks = new List<Task>();
+
         // Reader threads
-        for (int r = 0; r < 5; r++)
+        for (int r = 0; r < readerCount; r++)
         {
-            var task = Task.Run(() =>
+            allTasks.Add(Task.Run(() =>
             {
                 for (int i = 0; i < iterations; i++)
                 {
                     var pos = (i % 10, 0);
                     var tile = map.GetTile(pos);
-                    // Just read, don't assert null (writer might not have written yet)
+                    // No assertion - tile might be null if not written yet
                 }
-            });
-            tasks.Add(task);
+            }));
         }
 
         // Writer threads
-        for (int w = 0; w < 5; w++)
+        for (int w = 0; w < writerCount; w++)
         {
-            var task = Task.Run(() =>
+            allTasks.Add(Task.Run(() =>
             {
                 for (int i = 0; i < iterations; i++)
                 {
                     var pos = (i % 10, 0);
                     map.SetTile(pos, new Room());
                 }
-            });
-            tasks.Add(task);
+            }));
         }
 
-        Task.WaitAll(tasks.ToArray());
+        Task.WaitAll(allTasks.ToArray());
 
-        // Assert: At least some tiles should be stored
-        var count = 0;
+        // Assert: All positions should be written (writers completed)
         for (int i = 0; i < 10; i++)
         {
-            if (map.GetTile((i, 0)) != null)
-                count++;
+            var tile = map.GetTile((i, 0));
+            Assert.That(tile, Is.Not.Null, $"Position ({i}, 0) should have a tile after all writers completed");
+            Assert.That(tile, Is.TypeOf<Room>());
         }
-        Assert.That(count, Is.GreaterThan(0));
     }
 
     /// <summary>
@@ -328,22 +337,17 @@ public class SharedMapTests
         // Arrange
         var map = new SharedMap();
         var position = (0, 0);
-        var tasks = new List<Task>();
+        var concurrentWrites = 10;
 
         // Act
-        for (int i = 0; i < 10; i++)
+        RunConcurrentTasks(concurrentWrites, () =>
         {
-            var task = Task.Run(() =>
-            {
-                map.SetTile(position, new Room());
-            });
-            tasks.Add(task);
-        }
-
-        Task.WaitAll(tasks.ToArray());
+            map.SetTile(position, new Room());
+        });
 
         // Assert: Position has a tile (no nulls, no exceptions)
         var retrieved = map.GetTile(position);
         Assert.That(retrieved, Is.Not.Null);
+        Assert.That(retrieved, Is.TypeOf<Room>());
     }
 }

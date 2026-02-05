@@ -2,8 +2,8 @@
   "profiles": {
     "Labyrinth": {
       "commandName": "Project",
-      "commandLineArgs": "https://labyrinth.syllab.com EA2DF750-CB9F-45E1-AF92-909BE20630FB labyrinth9x7.json",
-      "workingDirectory": "C:\\Code\\cs\\console\\labyrinth\\Labyrinth"
+      "commandLineArgs": "http://localhost:5220",
+      "workingDirectory": "/home/axel-jcqt/RiderProjects/labyrinth_project/Labyrinth/"
     }
   }
 }
