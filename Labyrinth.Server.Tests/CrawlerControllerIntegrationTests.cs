@@ -1,10 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
 using ApiTypes;
-using LabyrinthApi.Controllers.DTOs;
+using Labyrinth.Server.Controllers.DTOs;
 using Microsoft.AspNetCore.Mvc.Testing;
 
-namespace LabyrinthApi.Tests;
+namespace Labyrinth.Server.Tests;
 
 /// <summary>
 /// Integration tests for the Crawler API endpoints following AAA pattern.

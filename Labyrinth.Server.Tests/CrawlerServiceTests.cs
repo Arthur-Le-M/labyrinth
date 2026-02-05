@@ -1,7 +1,7 @@
 using ApiTypes;
-using LabyrinthApi.Services;
+using Labyrinth.Server.Services;
 
-namespace LabyrinthApi.Tests;
+namespace Labyrinth.Server.Tests;
 
 /// <summary>
 /// Unit tests for CrawlerService following AAA pattern (Arrange-Act-Assert).

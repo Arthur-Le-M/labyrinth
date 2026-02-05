@@ -1,4 +1,4 @@
-namespace LabyrinthApi.Controllers.DTOs;
+namespace Labyrinth.Server.Controllers.DTOs;
 
 using ApiTypes;
 

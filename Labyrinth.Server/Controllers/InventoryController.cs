@@ -1,8 +1,8 @@
-namespace LabyrinthApi.Controllers;
+namespace Labyrinth.Server.Controllers;
 
 using Microsoft.AspNetCore.Mvc;
 using ApiTypes;
-using LabyrinthApi.Services;
+using Labyrinth.Server.Services;
 
 /// <summary>
 /// Controller for managing crawler inventory operations.

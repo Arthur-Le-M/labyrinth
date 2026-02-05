@@ -1,4 +1,4 @@
-namespace LabyrinthApi.Services;
+namespace Labyrinth.Server.Services;
 
 using ApiTypes;
 

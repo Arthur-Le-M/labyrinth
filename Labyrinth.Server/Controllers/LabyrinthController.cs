@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using ApiTypes;
-using LabyrinthApi.Services;
+using Labyrinth.Server.Services;
 
-namespace LabyrinthApi.Controllers;
+namespace Labyrinth.Server.Controllers;
 
 /// <summary>
 /// Controller for managing labyrinth and tile operations.

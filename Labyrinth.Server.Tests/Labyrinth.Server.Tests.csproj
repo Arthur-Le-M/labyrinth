@@ -23,8 +23,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\LabyrinthApi\LabyrinthApi.csproj" />
+    <ProjectReference Include="..\Labyrinth.Server\Labyrinth.Server.csproj" />
     <ProjectReference Include="..\ApiTypes\ApiTypes.csproj" />
   </ItemGroup>
 
 </Project>
+
