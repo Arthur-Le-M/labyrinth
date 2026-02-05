@@ -190,5 +190,63 @@ public class CrawlerServiceTests
     }
 
     #endregion
+
+    #region GetCrawlersByAppKey Tests
+
+    [Test]
+    public void GetCrawlersByAppKey_WithMatchingCrawlers_ShouldReturnCrawlers()
+    {
+        // Arrange
+        var appKey = "test-app-key";
+        var crawler1 = new Crawler { Id = Guid.NewGuid(), X = 0, Y = 0, Dir = Direction.North };
+        var crawler2 = new Crawler { Id = Guid.NewGuid(), X = 5, Y = 5, Dir = Direction.South };
+        _crawlerService.AddCrawler(crawler1, appKey);
+        _crawlerService.AddCrawler(crawler2, appKey);
+
+        // Act
+        var result = _crawlerService.GetCrawlersByAppKey(appKey);
+
+        // Assert
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result.Count(), Is.EqualTo(2));
+    }
+
+    [Test]
+    public void GetCrawlersByAppKey_WithNoMatchingCrawlers_ShouldReturnEmptyEnumerable()
+    {
+        // Arrange
+        var appKey = "non-existing-app-key";
+
+        // Act
+        var result = _crawlerService.GetCrawlersByAppKey(appKey);
+
+        // Assert
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result, Is.Empty);
+    }
+
+    [Test]
+    public void GetCrawlersByAppKey_WithDifferentAppKeys_ShouldReturnOnlyMatchingCrawlers()
+    {
+        // Arrange
+        var appKey1 = "app-key-1";
+        var appKey2 = "app-key-2";
+        var crawler1 = new Crawler { Id = Guid.NewGuid(), X = 0, Y = 0, Dir = Direction.North };
+        var crawler2 = new Crawler { Id = Guid.NewGuid(), X = 5, Y = 5, Dir = Direction.South };
+        var crawler3 = new Crawler { Id = Guid.NewGuid(), X = 10, Y = 10, Dir = Direction.East };
+        _crawlerService.AddCrawler(crawler1, appKey1);
+        _crawlerService.AddCrawler(crawler2, appKey2);
+        _crawlerService.AddCrawler(crawler3, appKey1);
+
+        // Act
+        var result = _crawlerService.GetCrawlersByAppKey(appKey1);
+
+        // Assert
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result.Count(), Is.EqualTo(2));
+        Assert.That(result.All(c => c.Id == crawler1.Id || c.Id == crawler3.Id), Is.True);
+    }
+
+    #endregion
 }
 

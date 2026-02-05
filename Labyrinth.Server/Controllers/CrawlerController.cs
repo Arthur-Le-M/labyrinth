@@ -25,6 +25,25 @@ public class CrawlerController : ControllerBase
     }
 
     /// <summary>
+    /// Gets all crawlers for a specific application.
+    /// </summary>
+    /// <param name="appKey">The application key to filter crawlers.</param>
+    /// <returns>An array of crawlers belonging to the application.</returns>
+    [HttpGet]
+    [ProducesResponseType(typeof(Crawler[]), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public ActionResult<Crawler[]> GetCrawlers([FromQuery] string? appKey)
+    {
+        if (string.IsNullOrWhiteSpace(appKey))
+        {
+            return BadRequest("AppKey is required");
+        }
+
+        var crawlers = _crawlerService.GetCrawlersByAppKey(appKey);
+        return Ok(crawlers.ToArray());
+    }
+
+    /// <summary>
     /// Creates a new crawler.
     /// </summary>
     /// <param name="request">The create crawler request containing the app key.</param>
@@ -51,7 +70,7 @@ public class CrawlerController : ControllerBase
             Items = Array.Empty<InventoryItem>()
         };
 
-        _crawlerService.AddCrawler(crawler);
+        _crawlerService.AddCrawler(crawler, request.AppKey);
 
         return CreatedAtAction(nameof(GetCrawler), new { id = crawler.Id }, crawler);
     }
