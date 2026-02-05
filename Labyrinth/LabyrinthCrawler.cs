@@ -12,11 +12,14 @@ namespace Labyrinth
 
             public int Y => _y;
 
-            public Task<Type> FacingTileType => ProcessFacingTileAsync((x, y, tile) => tile.GetType());
+            public Task<Type> FacingTileType => GetFacingTileTypeAsync();
+
+            public Task<Type> GetFacingTileTypeAsync(CancellationToken cancellationToken = default) =>
+                ProcessFacingTileAsync((x, y, tile) => tile.GetType(), cancellationToken);
 
             Direction ICrawler.Direction => _direction;
 
-            public Task<Inventory?> TryWalk(Inventory walkerInventory) => 
+            public Task<Inventory?> TryWalk(Inventory walkerInventory, CancellationToken cancellationToken = default) => 
                 ProcessFacingTileAsync((facingX, facingY, tile) =>
                 {
                     Inventory? tileContent = null;
@@ -32,7 +35,7 @@ namespace Labyrinth
                         _y = facingY;
                     }
                     return tileContent;
-                });
+                }, cancellationToken);
             
             private bool Open(Door door, Inventory walkerInventory)
             {
@@ -53,9 +56,9 @@ namespace Labyrinth
             private bool IsOut(int pos, int dimension) =>
                 pos < 0 || pos >= _tiles.GetLength(dimension);
 
-            private async Task<T> ProcessFacingTileAsync<T>(Func<int, int, Tile, T> process)
+            private async Task<T> ProcessFacingTileAsync<T>(Func<int, int, Tile, T> process, CancellationToken cancellationToken = default)
             {
-                await _semaphore.WaitAsync();
+                await _semaphore.WaitAsync(cancellationToken);
                 try
                 {
                     int facingX = _x + _direction.DeltaX,

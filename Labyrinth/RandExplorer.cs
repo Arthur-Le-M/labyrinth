@@ -18,21 +18,29 @@ namespace Labyrinth
 
         public ICrawler Crawler => _crawler;
 
-        public async Task<int> GetOut(int n, Inventory? bag = null)
+        public async Task<int> GetOut(int n, Inventory? bag = null, CancellationToken cancellationToken = default)
         {
             ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(n, 0, "n must be strictly positive");
 
             bag ??= new MyInventory();
-            for( ; n > 0 && await _crawler.FacingTileType != typeof(Outside); n--)
+            while (n > 0)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var facingTileType = await _crawler.GetFacingTileTypeAsync(cancellationToken);
+                if (facingTileType == typeof(Outside))
+                {
+                    break;
+                }
+
                 EventHandler<CrawlingEventArgs>? changeEvent;
 
-                if ((await _crawler.FacingTileType) != typeof(Wall)
+                if (facingTileType != typeof(Wall)
                     && _rnd.Next() == Actions.Walk
-                    && await _crawler.TryWalk(bag) is Inventory roomContent)
+                    && await _crawler.TryWalk(bag, cancellationToken) is Inventory roomContent)
                 {
                     await bag.TryMoveItemsFrom(
-                        roomContent, 
+                        roomContent,
                         roomContent.ItemTypes.Select(_ => true).ToList()
                     );
                     changeEvent = PositionChanged;
@@ -43,9 +51,11 @@ namespace Labyrinth
                     changeEvent = DirectionChanged;
                 }
                 changeEvent?.Invoke(this, new CrawlingEventArgs(_crawler));
+                n--;
             }
             return n;
         }
+
 
         public event EventHandler<CrawlingEventArgs>? PositionChanged;
 
