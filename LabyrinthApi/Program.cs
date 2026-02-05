@@ -6,6 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton<CrawlerService>();
 builder.Services.AddSingleton<ICrawlerService>(sp => sp.GetRequiredService<CrawlerService>());
 builder.Services.AddSingleton<IInventoryService, InventoryService>();
+builder.Services.AddSingleton<ILabyrinthService, LabyrinthService>();
 
 // Add controllers
 builder.Services.AddControllers();
