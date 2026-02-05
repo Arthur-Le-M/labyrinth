@@ -25,14 +25,26 @@ namespace Labyrinth.ApiClient
 
         public Task<Type> FacingTileType => GetFacingTileTypeAsync();
 
-        public async Task<Inventory?> TryWalk(Inventory myInventory)
+        public async Task<Type> GetFacingTileTypeAsync(CancellationToken cancellationToken = default)
+        {
+            if (_cacheDirection != _direction && !await UpdateRemote(cancellationToken))
+            {
+                while(_direction != _cacheDirection)
+                {
+                    _direction.TurnLeft();
+                }
+            }
+            return _cache.FacingTile.GetCrawlerFacingTileType();
+        }
+
+        public async Task<Inventory?> TryWalk(Inventory myInventory, CancellationToken cancellationToken = default)
         {
             if(myInventory != _bag)
             {
                 throw new ArgumentException("Can only walk with own bag inventory (returned by labyrinth).", nameof(myInventory));
             }
             _cache.Walking = true;
-            return await UpdateRemote()
+            return await UpdateRemote(cancellationToken)
                 ? _items
                 : null;
         }
@@ -46,25 +58,13 @@ namespace Labyrinth.ApiClient
 
         public Inventory Bag => _bag;
 
-        private async Task<Type> GetFacingTileTypeAsync()
-        {
-            if (_cacheDirection != _direction && !await UpdateRemote())
-            {
-                while(_direction!=_cacheDirection)
-                {
-                    _direction.TurnLeft();
-                }
-            }
-            return _cache.FacingTile.GetCrawlerFacingTileType();
-        }
-
-        private async Task<bool> UpdateRemote()
+        private async Task<bool> UpdateRemote(CancellationToken cancellationToken = default)
         {
             _cache.Dir = _direction.GetApiDirection();
-            var response = await _httpClient.PatchAsJsonAsync($"/crawlers/{_cache.Id}?appKey={_appKey}", _cache);
+            var response = await _httpClient.PatchAsJsonAsync($"/crawlers/{_cache.Id}?appKey={_appKey}", _cache, cancellationToken);
 
             if (response.IsSuccessStatusCode &&
-                await response.Content.ReadFromJsonAsync<Dto.Crawler>() is Dto.Crawler lastState)
+                await response.Content.ReadFromJsonAsync<Dto.Crawler>(cancellationToken: cancellationToken) is Dto.Crawler lastState)
             {
                 UpdateCache(lastState);
                 Changed?.Invoke(this, EventArgs.Empty);
