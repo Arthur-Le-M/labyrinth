@@ -41,4 +41,14 @@ public class CrawlerService : ICrawlerService
             _crawlers[crawler.Id] = crawler;
         }
     }
+    
+    /// <summary>
+    /// Deletes a crawler by its unique identifier.
+    /// </summary>
+    /// <param name="id">The crawler's unique identifier.</param>
+    /// <returns>True if the crawler was deleted, false if it didn't exist.</returns>
+    public bool DeleteCrawler(Guid id)
+    {
+        return _crawlers.Remove(id);
+    }
 }
