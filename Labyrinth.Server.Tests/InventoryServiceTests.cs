@@ -1,9 +1,9 @@
-namespace LabyrinthApi.Tests;
+namespace Labyrinth.Server.Tests;
 
 using NUnit.Framework;
 using Moq;
 using ApiTypes;
-using LabyrinthApi.Services;
+using Labyrinth.Server.Services;
 
 /// <summary>
 /// Unit tests for InventoryService following the AAA pattern (Arrange, Act, Assert).
