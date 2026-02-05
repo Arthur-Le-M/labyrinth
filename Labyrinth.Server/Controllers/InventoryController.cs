@@ -46,6 +46,7 @@ public class InventoryController : ControllerBase
     
     /// <summary>
     /// Moves items in the crawler's bag based on move requirements.
+    /// Set MoveRequired to true to move an item from the bag to the room.
     /// </summary>
     /// <param name="id">The crawler's unique identifier.</param>
     /// <param name="moveRequests">Array of items with their move requirements.</param>
@@ -82,5 +83,25 @@ public class InventoryController : ControllerBase
         var items = _inventoryService.GetRoomItems(id);
         return Ok(items ?? Array.Empty<InventoryItem>());
     }
+    
+    /// <summary>
+    /// Moves items from the room to the crawler's bag based on move requirements.
+    /// Set MoveRequired to true to move an item from the room to the bag.
+    /// </summary>
+    /// <param name="id">The crawler's unique identifier.</param>
+    /// <param name="moveRequests">Array of items with their move requirements.</param>
+    /// <returns>The updated bag contents after the move.</returns>
+    [HttpPut("items")]
+    [ProducesResponseType(typeof(InventoryItem[]), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult<InventoryItem[]> MoveRoomItemsToBag(Guid id, [FromBody] InventoryItem[] moveRequests)
+    {
+        if (!_crawlerService.CrawlerExists(id))
+        {
+            return NotFound();
+        }
+        
+        var result = _inventoryService.MoveRoomItemsToBag(id, moveRequests);
+        return Ok(result ?? Array.Empty<InventoryItem>());
+    }
 }
-

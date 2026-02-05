@@ -28,4 +28,12 @@ public interface IInventoryService
     /// <param name="moveRequests">Array of items with their move requirements.</param>
     /// <returns>The updated bag contents after the move, or null if the crawler doesn't exist.</returns>
     InventoryItem[]? MoveItems(Guid crawlerId, InventoryItem[] moveRequests);
+    
+    /// <summary>
+    /// Moves items from the room to the bag based on the move requirements.
+    /// </summary>
+    /// <param name="crawlerId">The crawler's unique identifier.</param>
+    /// <param name="moveRequests">Array of items with their move requirements. Set MoveRequired to true to move an item.</param>
+    /// <returns>The updated bag contents after the move, or null if the crawler doesn't exist.</returns>
+    InventoryItem[]? MoveRoomItemsToBag(Guid crawlerId, InventoryItem[] moveRequests);
 }

@@ -8,6 +8,7 @@ using ApiTypes;
 public class CrawlerService : ICrawlerService
 {
     private readonly Dictionary<Guid, Crawler> _crawlers = new();
+    private readonly Dictionary<Guid, string> _crawlerAppKeys = new();
     
     /// <summary>
     /// Adds a new crawler to the service.
@@ -19,9 +20,25 @@ public class CrawlerService : ICrawlerService
     }
     
     /// <inheritdoc />
+    public void AddCrawler(Crawler crawler, string appKey)
+    {
+        _crawlers[crawler.Id] = crawler;
+        _crawlerAppKeys[crawler.Id] = appKey;
+    }
+    
+    /// <inheritdoc />
     public Crawler? GetCrawler(Guid id)
     {
         return _crawlers.TryGetValue(id, out var crawler) ? crawler : null;
+    }
+    
+    /// <inheritdoc />
+    public IEnumerable<Crawler> GetCrawlersByAppKey(string appKey)
+    {
+        return _crawlerAppKeys
+            .Where(kvp => kvp.Value == appKey)
+            .Select(kvp => _crawlers[kvp.Key])
+            .ToArray();
     }
     
     /// <inheritdoc />
@@ -49,6 +66,7 @@ public class CrawlerService : ICrawlerService
     /// <returns>True if the crawler was deleted, false if it didn't exist.</returns>
     public bool DeleteCrawler(Guid id)
     {
+        _crawlerAppKeys.Remove(id);
         return _crawlers.Remove(id);
     }
 }
