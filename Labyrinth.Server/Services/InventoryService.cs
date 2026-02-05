@@ -74,10 +74,49 @@ public class InventoryService : IInventoryService
         crawler.Bag = bag.ToArray();
         crawler.Items = roomItems.ToArray();
         
-        if (_crawlerService is CrawlerService crawlerServiceImpl)
+        _crawlerService.UpdateCrawler(crawler);
+        
+        return crawler.Bag;
+    }
+    
+    /// <inheritdoc />
+    public InventoryItem[]? MoveRoomItemsToBag(Guid crawlerId, InventoryItem[] moveRequests)
+    {
+        var crawler = _crawlerService.GetCrawler(crawlerId);
+        if (crawler == null)
         {
-            crawlerServiceImpl.UpdateCrawler(crawler);
+            return null;
         }
+        
+        var bag = crawler.Bag?.ToList() ?? new List<InventoryItem>();
+        var roomItems = crawler.Items?.ToList() ?? new List<InventoryItem>();
+        
+        // Collect indices to remove from room items
+        var indicesToRemove = new List<int>();
+        
+        // Process each move request
+        for (int i = 0; i < moveRequests.Length && i < roomItems.Count; i++)
+        {
+            if (moveRequests[i].MoveRequired == true)
+            {
+                // Move item from room to bag
+                var itemToMove = roomItems[i];
+                bag.Add(new InventoryItem { Type = itemToMove.Type });
+                indicesToRemove.Add(i);
+            }
+        }
+        
+        // Remove moved items from room (in reverse order to maintain indices)
+        foreach (var index in indicesToRemove.OrderByDescending(x => x))
+        {
+            roomItems.RemoveAt(index);
+        }
+        
+        // Update crawler state
+        crawler.Bag = bag.ToArray();
+        crawler.Items = roomItems.ToArray();
+        
+        _crawlerService.UpdateCrawler(crawler);
         
         return crawler.Bag;
     }

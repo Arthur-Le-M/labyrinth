@@ -290,5 +290,106 @@ public class CrawlerControllerIntegrationTests
     }
 
     #endregion
+
+    #region GET /crawlers Tests
+
+    [Test]
+    public async Task GetCrawlers_WithValidAppKey_ShouldReturnCrawlersForApp()
+    {
+        // Arrange
+        var createRequest = new CreateCrawlerRequest { AppKey = ValidAppKey };
+        await _client.PostAsJsonAsync("/crawlers", createRequest);
+        await _client.PostAsJsonAsync("/crawlers", createRequest);
+
+        // Act
+        var response = await _client.GetAsync($"/crawlers?appKey={ValidAppKey}");
+
+        // Assert
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        var crawlers = await response.Content.ReadFromJsonAsync<Crawler[]>();
+        Assert.That(crawlers, Is.Not.Null);
+        Assert.That(crawlers!.Length, Is.GreaterThanOrEqualTo(2));
+    }
+
+    [Test]
+    public async Task GetCrawlers_WithMissingAppKey_ShouldReturnBadRequest()
+    {
+        // Arrange & Act
+        var response = await _client.GetAsync("/crawlers");
+
+        // Assert
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+    }
+
+    [Test]
+    public async Task GetCrawlers_WithEmptyAppKey_ShouldReturnBadRequest()
+    {
+        // Arrange & Act
+        var response = await _client.GetAsync("/crawlers?appKey=");
+
+        // Assert
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+    }
+
+    [Test]
+    public async Task GetCrawlers_WithNoMatchingCrawlers_ShouldReturnEmptyArray()
+    {
+        // Arrange
+        var uniqueAppKey = Guid.NewGuid().ToString();
+
+        // Act
+        var response = await _client.GetAsync($"/crawlers?appKey={uniqueAppKey}");
+
+        // Assert
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        var crawlers = await response.Content.ReadFromJsonAsync<Crawler[]>();
+        Assert.That(crawlers, Is.Not.Null);
+        Assert.That(crawlers, Is.Empty);
+    }
+
+    #endregion
+
+    #region PUT /crawlers/{id}/items Tests
+
+    [Test]
+    public async Task PutItems_WithValidRequest_ShouldReturnUpdatedBag()
+    {
+        // Arrange
+        var createRequest = new CreateCrawlerRequest { AppKey = ValidAppKey };
+        var createResponse = await _client.PostAsJsonAsync("/crawlers", createRequest);
+        var createdCrawler = await createResponse.Content.ReadFromJsonAsync<Crawler>();
+
+        var moveRequests = new[]
+        {
+            new InventoryItem { Type = ItemType.Key, MoveRequired = true }
+        };
+
+        // Act
+        var response = await _client.PutAsJsonAsync($"/crawlers/{createdCrawler!.Id}/items", moveRequests);
+
+        // Assert
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        var result = await response.Content.ReadFromJsonAsync<InventoryItem[]>();
+        Assert.That(result, Is.Not.Null);
+    }
+
+    [Test]
+    public async Task PutItems_WithNonExistingCrawler_ShouldReturnNotFound()
+    {
+        // Arrange
+        var nonExistingId = Guid.NewGuid();
+        var moveRequests = new[]
+        {
+            new InventoryItem { Type = ItemType.Key, MoveRequired = true }
+        };
+
+        // Act
+        var response = await _client.PutAsJsonAsync($"/crawlers/{nonExistingId}/items", moveRequests);
+
+        // Assert
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+    }
+
+    #endregion
 }
 
