@@ -12,13 +12,19 @@ using Labyrinth.Map;
 using Dto=ApiTypes;
 using System.Text.Json;
 
-// Parse strategy from command line (--strategy=dfs, --strategy=random)
+// Parse command line options
 string strategyName = "random";
+bool multiMode = false;
+
 foreach (var arg in args)
 {
     if (arg.StartsWith("--strategy=", StringComparison.OrdinalIgnoreCase))
     {
         strategyName = arg.Substring("--strategy=".Length).ToLower();
+    }
+    else if (arg.Equals("--multi", StringComparison.OrdinalIgnoreCase))
+    {
+        multiMode = true;
     }
 }
 
@@ -70,9 +76,10 @@ ContestSession? contest = null;
 if (args.Length < 2 || args[0].StartsWith("--"))
 {
     Console.WriteLine(
-        "Command line usage: https://apiserver.example appKeyGuid [settings.json] [--strategy=random|dfs]"
+        "Command line usage: https://apiserver.example appKeyGuid [settings.json] [--strategy=random|dfs|astar] [--multi]"
     );
-    Console.WriteLine($"Using strategy: {strategyName}");
+    Console.WriteLine("  --multi: Run 3 crawlers simultaneously with Random, DFS, and A* strategies");
+    Console.WriteLine($"Using strategy: {strategyName}, Multi-mode: {multiMode}");
     labyrinth = new Labyrinth.Labyrinth(new AsciiParser("""
         +--+--------+
         |  /        |

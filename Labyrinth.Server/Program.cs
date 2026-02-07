@@ -7,6 +7,7 @@ builder.Services.AddSingleton<CrawlerService>();
 builder.Services.AddSingleton<ICrawlerService>(sp => sp.GetRequiredService<CrawlerService>());
 builder.Services.AddSingleton<IInventoryService, InventoryService>();
 builder.Services.AddSingleton<ILabyrinthService, LabyrinthService>();
+builder.Services.AddSingleton<IMovementService, MovementService>();
 
 // Add controllers
 builder.Services.AddControllers();

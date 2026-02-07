@@ -6,6 +6,7 @@ using Labyrinth.Server.Services;
 
 /// <summary>
 /// Controller for managing crawler inventory operations.
+/// Implements the official Labyrinth API specification for /crawlers/{id}/bag and /crawlers/{id}/items endpoints.
 /// </summary>
 [ApiController]
 [Route("crawlers/{id}")]
@@ -24,84 +25,167 @@ public class InventoryController : ControllerBase
         _inventoryService = inventoryService;
         _crawlerService = crawlerService;
     }
+
+    /// <summary>
+    /// Validates appKey and crawler access.
+    /// </summary>
+    private ActionResult? ValidateAccess(Guid id, string? appKey, out Crawler? crawler)
+    {
+        crawler = null;
+        
+        if (string.IsNullOrWhiteSpace(appKey))
+        {
+            return Unauthorized(new ProblemDetails
+            {
+                Title = "Unauthorized",
+                Detail = "A valid app key is required",
+                Status = StatusCodes.Status401Unauthorized
+            });
+        }
+
+        crawler = _crawlerService.GetCrawler(id);
+        
+        if (crawler == null)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Title = "Not Found",
+                Detail = "Unknown crawler",
+                Status = StatusCodes.Status404NotFound
+            });
+        }
+
+        if (!_crawlerService.IsOwner(id, appKey))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new ProblemDetails
+            {
+                Title = "Forbidden",
+                Detail = "This app key cannot access this crawler",
+                Status = StatusCodes.Status403Forbidden
+            });
+        }
+
+        return null;
+    }
     
     /// <summary>
-    /// Gets the crawler's bag inventory.
+    /// Gets the list of items currently held in the specified crawler's inventory (bag).
     /// </summary>
-    /// <param name="id">The crawler's unique identifier.</param>
+    /// <param name="id">The unique identifier of the crawler whose inventory bag is to be retrieved.</param>
+    /// <param name="appKey">The application key used to authorize the request.</param>
     /// <returns>The items in the crawler's bag.</returns>
     [HttpGet("bag")]
     [ProducesResponseType(typeof(InventoryItem[]), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult<InventoryItem[]> GetBag(Guid id)
+    public ActionResult<InventoryItem[]> GetBag(Guid id, [FromQuery] string? appKey)
     {
-        if (!_crawlerService.CrawlerExists(id))
-        {
-            return NotFound();
-        }
+        var validationResult = ValidateAccess(id, appKey, out _);
+        if (validationResult != null)
+            return validationResult;
         
         var bag = _inventoryService.GetBag(id);
         return Ok(bag ?? Array.Empty<InventoryItem>());
     }
     
     /// <summary>
-    /// Moves items in the crawler's bag based on move requirements.
-    /// Set MoveRequired to true to move an item from the bag to the room.
+    /// Updates the inventory bag for the specified crawler.
+    /// Set move-required to true to move an item from the bag to the room.
     /// </summary>
-    /// <param name="id">The crawler's unique identifier.</param>
-    /// <param name="moveRequests">Array of items with their move requirements.</param>
+    /// <param name="id">The unique identifier of the crawler whose inventory bag is to be updated.</param>
+    /// <param name="appKey">The application key used to authorize the request.</param>
+    /// <param name="moveRequests">Array of InventoryItem objects with move requirements.</param>
     /// <returns>The updated bag contents.</returns>
     [HttpPut("bag")]
     [ProducesResponseType(typeof(InventoryItem[]), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult<InventoryItem[]> MoveBagItems(Guid id, [FromBody] InventoryItem[] moveRequests)
+    [ProducesResponseType(StatusCodes.Status408RequestTimeout)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public ActionResult<InventoryItem[]> UpdateBag(
+        Guid id, 
+        [FromQuery] string? appKey, 
+        [FromBody] InventoryItem[] moveRequests)
     {
-        if (!_crawlerService.CrawlerExists(id))
-        {
-            return NotFound();
-        }
+        var validationResult = ValidateAccess(id, appKey, out _);
+        if (validationResult != null)
+            return validationResult;
         
         var result = _inventoryService.MoveItems(id, moveRequests);
-        return Ok(result ?? Array.Empty<InventoryItem>());
+        
+        // Check for timeout condition (could be implemented in service)
+        if (result == null)
+        {
+            return StatusCode(StatusCodes.Status408RequestTimeout, new ProblemDetails
+            {
+                Title = "Request Timeout",
+                Detail = "Inventory access timed out",
+                Status = StatusCodes.Status408RequestTimeout
+            });
+        }
+        
+        return Ok(result);
     }
     
     /// <summary>
-    /// Gets the items available in the room where the crawler is located.
+    /// Retrieves the list of inventory items currently associated with the current crawler location (tile).
     /// </summary>
-    /// <param name="id">The crawler's unique identifier.</param>
+    /// <param name="id">The unique identifier of the crawler whose current tile inventory is to be retrieved.</param>
+    /// <param name="appKey">The application key used to authorize the request.</param>
     /// <returns>The items in the room.</returns>
     [HttpGet("items")]
     [ProducesResponseType(typeof(InventoryItem[]), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult<InventoryItem[]> GetRoomItems(Guid id)
+    public ActionResult<InventoryItem[]> GetRoomItems(Guid id, [FromQuery] string? appKey)
     {
-        if (!_crawlerService.CrawlerExists(id))
-        {
-            return NotFound();
-        }
+        var validationResult = ValidateAccess(id, appKey, out _);
+        if (validationResult != null)
+            return validationResult;
         
         var items = _inventoryService.GetRoomItems(id);
         return Ok(items ?? Array.Empty<InventoryItem>());
     }
     
     /// <summary>
-    /// Moves items from the room to the crawler's bag based on move requirements.
-    /// Set MoveRequired to true to move an item from the room to the bag.
+    /// Updates the items placed in the tile of the specified crawler.
+    /// Set move-required to true to move an item from the room to the crawler's bag.
     /// </summary>
-    /// <param name="id">The crawler's unique identifier.</param>
-    /// <param name="moveRequests">Array of items with their move requirements.</param>
-    /// <returns>The updated bag contents after the move.</returns>
+    /// <param name="id">The unique identifier of the crawler whose tile inventory is to be updated.</param>
+    /// <param name="appKey">The application key used to authorize the request.</param>
+    /// <param name="moveRequests">Array of InventoryItem objects with move requirements.</param>
+    /// <returns>The updated tile inventory contents.</returns>
     [HttpPut("items")]
     [ProducesResponseType(typeof(InventoryItem[]), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult<InventoryItem[]> MoveRoomItemsToBag(Guid id, [FromBody] InventoryItem[] moveRequests)
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public ActionResult<InventoryItem[]> UpdateTileItems(
+        Guid id, 
+        [FromQuery] string? appKey, 
+        [FromBody] InventoryItem[] moveRequests)
     {
-        if (!_crawlerService.CrawlerExists(id))
-        {
-            return NotFound();
-        }
+        var validationResult = ValidateAccess(id, appKey, out _);
+        if (validationResult != null)
+            return validationResult;
         
         var result = _inventoryService.MoveRoomItemsToBag(id, moveRequests);
-        return Ok(result ?? Array.Empty<InventoryItem>());
+        
+        // Result null indicates conflict (inventory changed since last consultation)
+        if (result == null)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Title = "Conflict",
+                Detail = "Failed to complete item transfer, tile inventory changed since the last consultation",
+                Status = StatusCodes.Status409Conflict
+            });
+        }
+        
+        return Ok(result);
     }
 }

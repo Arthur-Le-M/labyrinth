@@ -53,5 +53,27 @@ public interface ICrawlerService
     /// <param name="id">The crawler's unique identifier.</param>
     /// <returns>True if the crawler was deleted, false if it didn't exist.</returns>
     bool DeleteCrawler(Guid id);
+
+    /// <summary>
+    /// Gets the count of crawlers for a specific application key.
+    /// </summary>
+    /// <param name="appKey">The application key.</param>
+    /// <returns>The number of crawlers associated with the app key.</returns>
+    int GetCrawlerCountByAppKey(string appKey);
+
+    /// <summary>
+    /// Gets the application key associated with a crawler.
+    /// </summary>
+    /// <param name="crawlerId">The crawler's unique identifier.</param>
+    /// <returns>The app key if found, null otherwise.</returns>
+    string? GetAppKeyForCrawler(Guid crawlerId);
+
+    /// <summary>
+    /// Checks if the app key owns the crawler.
+    /// </summary>
+    /// <param name="crawlerId">The crawler's unique identifier.</param>
+    /// <param name="appKey">The application key to check.</param>
+    /// <returns>True if the app key owns the crawler.</returns>
+    bool IsOwner(Guid crawlerId, string appKey);
 }
 

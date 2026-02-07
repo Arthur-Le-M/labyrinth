@@ -69,4 +69,23 @@ public class CrawlerService : ICrawlerService
         _crawlerAppKeys.Remove(id);
         return _crawlers.Remove(id);
     }
+
+    /// <inheritdoc />
+    public int GetCrawlerCountByAppKey(string appKey)
+    {
+        return _crawlerAppKeys.Count(kvp => kvp.Value == appKey);
+    }
+
+    /// <inheritdoc />
+    public string? GetAppKeyForCrawler(Guid crawlerId)
+    {
+        return _crawlerAppKeys.TryGetValue(crawlerId, out var appKey) ? appKey : null;
+    }
+
+    /// <inheritdoc />
+    public bool IsOwner(Guid crawlerId, string appKey)
+    {
+        return _crawlerAppKeys.TryGetValue(crawlerId, out var storedAppKey) 
+               && storedAppKey == appKey;
+    }
 }
