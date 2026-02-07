@@ -40,10 +40,10 @@ public class InventoryService : IInventoryService
         {
             return null;
         }
-        
+
         var bag = crawler.Bag?.ToList() ?? new List<InventoryItem>();
         var roomItems = crawler.Items?.ToList() ?? new List<InventoryItem>();
-        
+
         // Process each move request
         for (int i = 0; i < moveRequests.Length && i < bag.Count; i++)
         {
@@ -54,7 +54,7 @@ public class InventoryService : IInventoryService
                 roomItems.Add(new InventoryItem { Type = itemToMove.Type });
             }
         }
-        
+
         // Remove moved items from bag (in reverse order to maintain indices)
         var indicesToRemove = new List<int>();
         for (int i = 0; i < moveRequests.Length && i < bag.Count; i++)
@@ -64,18 +64,18 @@ public class InventoryService : IInventoryService
                 indicesToRemove.Add(i);
             }
         }
-        
+
         foreach (var index in indicesToRemove.OrderByDescending(x => x))
         {
             bag.RemoveAt(index);
         }
-        
+
         // Update crawler state
         crawler.Bag = bag.ToArray();
         crawler.Items = roomItems.ToArray();
-        
+
         _crawlerService.UpdateCrawler(crawler);
-        
+
         return crawler.Bag;
     }
     
@@ -87,13 +87,13 @@ public class InventoryService : IInventoryService
         {
             return null;
         }
-        
+
         var bag = crawler.Bag?.ToList() ?? new List<InventoryItem>();
         var roomItems = crawler.Items?.ToList() ?? new List<InventoryItem>();
-        
+
         // Collect indices to remove from room items
         var indicesToRemove = new List<int>();
-        
+
         // Process each move request
         for (int i = 0; i < moveRequests.Length && i < roomItems.Count; i++)
         {
@@ -105,19 +105,19 @@ public class InventoryService : IInventoryService
                 indicesToRemove.Add(i);
             }
         }
-        
+
         // Remove moved items from room (in reverse order to maintain indices)
         foreach (var index in indicesToRemove.OrderByDescending(x => x))
         {
             roomItems.RemoveAt(index);
         }
-        
+
         // Update crawler state
         crawler.Bag = bag.ToArray();
         crawler.Items = roomItems.ToArray();
-        
+
         _crawlerService.UpdateCrawler(crawler);
-        
+
         return crawler.Bag;
     }
 }

@@ -1,73 +1,77 @@
 namespace Labyrinth.Server.Services;
 
 using ApiTypes;
+using System.Collections.Concurrent;
 
 /// <summary>
 /// In-memory implementation of the crawler service for managing crawler state.
 /// </summary>
 public class CrawlerService : ICrawlerService
 {
-    private readonly Dictionary<Guid, Crawler> _crawlers = new();
-    private readonly Dictionary<Guid, string> _crawlerAppKeys = new();
-    
+    private readonly ConcurrentDictionary<Guid, Crawler> _crawlers = new();
+    private readonly ConcurrentDictionary<Guid, string> _crawlerAppKeys = new();
+    // Per-crawler lock objects to serialize updates for a single crawler
+    private readonly ConcurrentDictionary<Guid, object> _crawlerLocks = new();
+
     /// <summary>
     /// Adds a new crawler to the service.
     /// </summary>
-    /// <param name="crawler">The crawler to add.</param>
     public void AddCrawler(Crawler crawler)
     {
         _crawlers[crawler.Id] = crawler;
+        _crawlerLocks.GetOrAdd(crawler.Id, _ => new object());
     }
-    
+
     /// <inheritdoc />
     public void AddCrawler(Crawler crawler, string appKey)
     {
         _crawlers[crawler.Id] = crawler;
         _crawlerAppKeys[crawler.Id] = appKey;
+        _crawlerLocks.GetOrAdd(crawler.Id, _ => new object());
     }
-    
+
     /// <inheritdoc />
     public Crawler? GetCrawler(Guid id)
     {
         return _crawlers.TryGetValue(id, out var crawler) ? crawler : null;
     }
-    
+
     /// <inheritdoc />
     public IEnumerable<Crawler> GetCrawlersByAppKey(string appKey)
     {
         return _crawlerAppKeys
             .Where(kvp => kvp.Value == appKey)
-            .Select(kvp => _crawlers[kvp.Key])
-            .ToArray();
+            .Select(kvp => _crawlers.TryGetValue(kvp.Key, out var c) ? c : null)
+            .Where(c => c != null)!
+            .ToArray()!;
     }
-    
+
     /// <inheritdoc />
     public bool CrawlerExists(Guid id)
     {
         return _crawlers.ContainsKey(id);
     }
-    
+
     /// <summary>
-    /// Updates an existing crawler's state.
+    /// Updates an existing crawler's state only if it already exists.
     /// </summary>
-    /// <param name="crawler">The crawler with updated state.</param>
     public void UpdateCrawler(Crawler crawler)
     {
-        if (_crawlers.ContainsKey(crawler.Id))
+        if (_crawlers.TryGetValue(crawler.Id, out var existing))
         {
-            _crawlers[crawler.Id] = crawler;
+            // TryUpdate uses a compare-exchange semantics to avoid races
+            _crawlers.TryUpdate(crawler.Id, crawler, existing);
         }
     }
-    
+
     /// <summary>
     /// Deletes a crawler by its unique identifier.
     /// </summary>
-    /// <param name="id">The crawler's unique identifier.</param>
-    /// <returns>True if the crawler was deleted, false if it didn't exist.</returns>
     public bool DeleteCrawler(Guid id)
     {
-        _crawlerAppKeys.Remove(id);
-        return _crawlers.Remove(id);
+        _crawlerAppKeys.TryRemove(id, out _);
+        _crawlerLocks.TryRemove(id, out _);
+        return _crawlers.TryRemove(id, out _);
     }
 
     /// <inheritdoc />
@@ -85,7 +89,25 @@ public class CrawlerService : ICrawlerService
     /// <inheritdoc />
     public bool IsOwner(Guid crawlerId, string appKey)
     {
-        return _crawlerAppKeys.TryGetValue(crawlerId, out var storedAppKey) 
+        return _crawlerAppKeys.TryGetValue(crawlerId, out var storedAppKey)
                && storedAppKey == appKey;
+    }
+
+    private object GetLock(Guid id) => _crawlerLocks.GetOrAdd(id, _ => new object());
+
+    /// <inheritdoc />
+    public T RunLocked<T>(Guid id, Func<Crawler?, (T result, Crawler? updated)> work)
+    {
+        var l = GetLock(id);
+        lock (l)
+        {
+            _crawlers.TryGetValue(id, out var current);
+            var (result, updated) = work(current);
+            if (updated != null)
+            {
+                _crawlers[id] = updated;
+            }
+            return result;
+        }
     }
 }

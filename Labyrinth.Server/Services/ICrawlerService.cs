@@ -75,5 +75,17 @@ public interface ICrawlerService
     /// <param name="appKey">The application key to check.</param>
     /// <returns>True if the app key owns the crawler.</returns>
     bool IsOwner(Guid crawlerId, string appKey);
+
+    /// <summary>
+    /// Executes work for a specific crawler under a per-crawler lock and optionally updates the stored crawler atomically.
+    /// The provided function receives the current crawler (or null) and must return a tuple containing the result
+    /// and an optional updated crawler instance. If the updated crawler is non-null it will replace the stored value.
+    /// This helps implement safe modifications to crawler state.
+    /// </summary>
+    /// <typeparam name="T">Return type of the work function.</typeparam>
+    /// <param name="id">Crawler identifier.</param>
+    /// <param name="work">Function receiving current crawler and returning (result, updatedCrawler).</param>
+    /// <returns>The result value returned by the work function.</returns>
+    T RunLocked<T>(Guid id, Func<Crawler?, (T result, Crawler? updated)> work);
 }
 
