@@ -107,6 +107,7 @@ var sharedMap = new SharedMap();
 IExplorationStrategy CreateStrategy(string name) => name switch
 {
     "dfs" => new DfsStrategy(),
+    "astar" or "a*" => new AStarStrategy(),
     "random" or _ => new RandomStrategy(new BasicEnumRandomizer<RandExplorer.Actions>())
 };
 
