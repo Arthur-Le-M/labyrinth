@@ -7,6 +7,7 @@ namespace Labyrinth.Map;
 /// SharedMap (KnowledgeBase) for concurrent exploration knowledge sharing.
 /// Thread-safe storage of discovered tiles accessible by multiple explorers.
 /// Supports serialization for export and debugging.
+/// Updates door states when they are opened.
 /// </summary>
 public class SharedMap : ISharedMap
 {
@@ -20,6 +21,7 @@ public class SharedMap : ISharedMap
     /// <summary>
     /// Store a tile at a specific position.
     /// Thread-safe for concurrent writes.
+    /// Special handling: if a Room replaces a Door, it means the door was opened.
     /// </summary>
     /// <param name="position">Position tuple (x, y)</param>
     /// <param name="tile">The tile to store</param>
@@ -28,7 +30,45 @@ public class SharedMap : ISharedMap
         if (tile == null)
             throw new ArgumentNullException(nameof(tile));
 
-        _tiles.AddOrUpdate(position, tile, (_, __) => tile);
+        _tiles.AddOrUpdate(
+            position,
+            tile, // Add new tile if not exists
+            (key, existingTile) =>
+            {
+                // If we're replacing a Door with a Room, it means the door was successfully traversed
+                // Keep the Room to indicate it's now passable
+                if (existingTile is Door && tile is Room)
+                {
+                    return tile; // Door is now open/traversable
+                }
+                
+                // If we're trying to add a Door but a Room already exists,
+                // accept the Door update: it's more specific information
+                // (an explorer discovered a door within the room).
+                if (existingTile is Room && tile is Door)
+                {
+                    return tile; // Use the more specific Door information
+                }
+
+                // If both are doors, keep the one that's opened
+                if (existingTile is Door existingDoor && tile is Door newDoor)
+                {
+                    // Opened door has items in LocalInventory (the key is in the door)
+                    // Locked door has empty LocalInventory (key was removed)
+                    if (newDoor.IsOpened && !existingDoor.IsOpened)
+                    {
+                        return newDoor; // Update to opened door
+                    }
+                    if (existingDoor.IsOpened)
+                    {
+                        return existingDoor; // Keep opened door
+                    }
+                    return newDoor; // Otherwise use new info
+                }
+                
+                // For other cases, update with new tile
+                return tile;
+            });
 
         // Update bounds
         _boundsLock.EnterWriteLock();
