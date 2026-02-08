@@ -10,7 +10,7 @@ namespace Labyrinth.Exploration;
 /// Generic explorer that uses an IExplorationStrategy for decision making.
 /// Implements the IExplorer interface for use with MultiExplorer.
 /// </summary>
-public class StrategyExplorer : IExplorer
+public class StrategyExplorer : IExplorer, IStepsTrackingExplorer
 {
     private readonly ICrawler _crawler;
     private readonly IExplorationStrategy _strategy;
@@ -20,6 +20,7 @@ public class StrategyExplorer : IExplorer
     private bool? _lastMoveSucceeded;
     private (int x, int y)? _lastMoveTarget;
     private int _lastInventoryCount;
+    private int _stepsExecuted;
 
     /// <inheritdoc />
     public string Name => $"Explorer-{_strategy.Name}";
@@ -77,12 +78,28 @@ public class StrategyExplorer : IExplorer
 
             // Update the map with the facing tile
             var facingPos = (_crawler.X + _crawler.Direction.DeltaX, _crawler.Y + _crawler.Direction.DeltaY);
+            
+            // Only set the tile if it's not already known OR if we have better info
             if (!_map.IsKnown(facingPos))
             {
                 var facingTile = CreateTileFromType(facingType);
                 if (facingTile != null)
                 {
                     _map.SetTile(facingPos, facingTile);
+                }
+            }
+            else if (facingType == typeof(Door))
+            {
+                // If we see a door, always update it in case another crawler opened it
+                var existingTile = _map.GetTile(facingPos);
+                if (existingTile is not Door)
+                {
+                    // Position was marked as something else, update it to Door
+                    var door = CreateTileFromType(facingType);
+                    if (door != null)
+                    {
+                        _map.SetTile(facingPos, door);
+                    }
                 }
             }
 
@@ -103,26 +120,63 @@ public class StrategyExplorer : IExplorer
             {
                 case ExplorationAction.Walk:
                 {
+                    // count this as a step
+                    _stepsExecuted++;
                     _lastMoveTarget = facingPos;
                     var tileInventory = await _crawler.TryWalk(_inventory, cancellationToken);
                     _lastMoveSucceeded = tileInventory != null;
+                    
                     if (tileInventory != null)
                     {
                         await _inventory.TryMoveItemsFrom(
                             tileInventory,
                             tileInventory.ItemTypes.Select(_ => true).ToList()
                         );
+
+                        // If we successfully walked through a door, mark it as an open passage
+                        // so other explorers know they can traverse it
+                        if (facingType == typeof(Door))
+                        {
+                            // Mark as open door (or Room to indicate it's traversable)
+                            _map.SetTile(facingPos, new Room());
+                        }
                     }
+                    else
+                    {
+                        // Failed to walk - update reason in shared map
+                        if (facingType == typeof(Door))
+                        {
+                            // Door is locked - create a locked door representation
+                            var lockedDoor = new Door();
+                            try
+                            {
+                                lockedDoor.LockAndTakeKey(new MyInventory());
+                            }
+                            catch
+                            {
+                                // If locking fails, just use a regular door
+                            }
+                            _map.SetTile(facingPos, lockedDoor);
+                        }
+                        else if (facingType == typeof(Wall))
+                        {
+                            // Confirm it's a wall
+                            _map.SetTile(facingPos, Wall.Singleton);
+                        }
+                    }
+                    
                     _lastInventoryCount = _inventory.ItemTypes.Count();
                     PositionChanged?.Invoke(this, new CrawlingEventArgs(_crawler));
                     break;
                 }
                 case ExplorationAction.TurnLeft:
                     _crawler.Direction.TurnLeft();
+                    _stepsExecuted++;
                     DirectionChanged?.Invoke(this, new CrawlingEventArgs(_crawler));
                     break;
                 case ExplorationAction.TurnRight:
                     _crawler.Direction.TurnRight();
+                    _stepsExecuted++;
                     DirectionChanged?.Invoke(this, new CrawlingEventArgs(_crawler));
                     break;
                 case ExplorationAction.Stop:
@@ -130,6 +184,9 @@ public class StrategyExplorer : IExplorer
             }
         }
     }
+
+    /// <inheritdoc />
+    public int StepsExecuted => _stepsExecuted;
 
     /// <summary>
     /// Create a Tile instance from a Type.
@@ -141,7 +198,19 @@ public class StrategyExplorer : IExplorer
         if (tileType == typeof(Room))
             return new Room();
         if (tileType == typeof(Door))
-            return new Door();
+        {
+            // Represent discovered doors as locked by default in the shared map.
+            var d = new Door();
+            try
+            {
+                d.LockAndTakeKey(new MyInventory());
+            }
+            catch
+            {
+                // ignore and return door as-is if we cannot lock it
+            }
+            return d;
+        }
         if (tileType == typeof(Outside))
             return Outside.Singleton;
         return null;
