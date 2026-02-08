@@ -37,16 +37,18 @@ public class StrategyExplorer : IExplorer, IStepsTrackingExplorer
     /// <param name="strategy">The exploration strategy to use.</param>
     /// <param name="map">The shared map for storing discoveries.</param>
     /// <param name="maxMoves">Maximum number of moves before stopping (default: 10000).</param>
+    /// <param name="inventory">Optional inventory to use. If null, creates a new MyInventory.</param>
     public StrategyExplorer(
         ICrawler crawler,
         IExplorationStrategy strategy,
         ISharedMap map,
-        int maxMoves = 10000)
+        int maxMoves = 10000,
+        Inventory? inventory = null)
     {
         _crawler = crawler;
         _strategy = strategy;
         _map = map;
-        _inventory = new MyInventory();
+        _inventory = inventory ?? new MyInventory();
         _maxMoves = maxMoves;
     }
 

@@ -12,22 +12,6 @@ using Labyrinth.Map;
 using Dto=ApiTypes;
 using System.Text.Json;
 
-// Parse command line options
-string strategyName = "random";
-bool multiMode = false;
-
-foreach (var arg in args)
-{
-    if (arg.StartsWith("--strategy=", StringComparison.OrdinalIgnoreCase))
-    {
-        strategyName = arg.Substring("--strategy=".Length).ToLower();
-    }
-    else if (arg.Equals("--multi", StringComparison.OrdinalIgnoreCase))
-    {
-        multiMode = true;
-    }
-}
-
 char DirToChar(Direction dir) =>
     "^<v>"[dir.DeltaX * dir.DeltaX + dir.DeltaX + dir.DeltaY + 1];
 
@@ -122,17 +106,15 @@ void DrawExplorerForStrategy(object? sender, CrawlingEventArgs e)
 }
 
 Labyrinth.Labyrinth labyrinth;
-ICrawler crawler;
 Inventory? bag = null;
 ContestSession? contest = null;
 
-if (args.Length < 2 || args[0].StartsWith("--"))
+if (args.Length < 2)
 {
     Console.WriteLine(
-        "Command line usage: https://apiserver.example appKeyGuid [settings.json] [--strategy=random|dfs|astar] [--multi]"
+        "Command line usage: https://apiserver.example appKeyGuid [settings.json]"
     );
-    Console.WriteLine("  --multi: Run 3 crawlers simultaneously with 3 Random strategies");
-    Console.WriteLine($"Using strategy: {strategyName}, Multi-mode: {multiMode}");
+    Console.WriteLine("Running in multi-mode with 3 Random strategies");
     labyrinth = new Labyrinth.Labyrinth(new AsciiParser("""
         +--+--------+
         |  /        |
@@ -144,19 +126,17 @@ if (args.Length < 2 || args[0].StartsWith("--"))
         |           |
         +-----------+
         """));
-    crawler = labyrinth.NewCrawler();
 }
 else
 {
     Dto.Settings? settings = null;
 
-    if (args.Length > 2 && !args[2].StartsWith("--"))
+    if (args.Length > 2)
     {
         settings = JsonSerializer.Deserialize<Dto.Settings>(File.ReadAllText(args[2]));
     }
     contest = await ContestSession.Open(new Uri(args[0]), Guid.Parse(args[1]), settings);
     labyrinth = new (contest.Builder);
-    crawler = await contest.NewCrawler();
     bag = contest.Bags.First();
 }
 
@@ -171,12 +151,8 @@ IExplorationStrategy CreateStrategy(string name) => name switch
     "random" or _ => new RandomStrategy(new BasicEnumRandomizer<RandExplorer.Actions>())
 };
 
-var strategy = CreateStrategy(strategyName);
+Console.WriteLine("Exploration mode: Multi (3 Random explorers)");
 
-Console.WriteLine($"Exploration strategy: {strategy.Name}");
-
-var prevX = crawler.X;
-var prevY = crawler.Y;
 
 var fullMap = BuildFullMap(labyrinth);
 var mapWidth = fullMap.GetLength(0);
@@ -206,83 +182,46 @@ if (canRenderSharedMap)
     DrawMap(visibleMap);
 }
 
-// Multi-mode: spawn 3 explorers with Random strategy sharing the same map
-if (multiMode)
+// Run in multi-mode by default: spawn 3 explorers with Random strategy sharing the same map
+var explorers = new List<IExplorer>();
+var multiStrategies = new[] { "astar", "dfs", "random" };
+
+for (int i = 0; i < 3; i++)
 {
-    var explorers = new List<IExplorer>();
-    var multiStrategies = new[] { "random", "random", "random" };
-    
-    for (int i = 0; i < 3; i++)
+    ICrawler c;
+    Inventory? crawlerBag = null;
+    if (contest is null)
     {
-        ICrawler c;
-        if (contest is null)
+        c = labyrinth.NewCrawler();
+    }
+    else
+    {
+        c = await contest.NewCrawler();
+        // ClientCrawler requires its own bag for TryWalk
+        if (c is ClientCrawler cc)
         {
-            c = labyrinth.NewCrawler();
+            crawlerBag = cc.Bag;
         }
-        else
-        {
-            c = await contest.NewCrawler();
-        }
-
-        var stratName = multiStrategies[i];
-        var se = new StrategyExplorer(c, CreateStrategy(stratName), sharedMap, 3000);
-        se.DirectionChanged += DrawExplorerForStrategy;
-        se.PositionChanged += (s, e) =>
-        {
-            try
-            {
-                DrawExplorerForStrategy(s, e);
-            }
-            catch (ArgumentOutOfRangeException) { /* Ignore console bounds errors */ }
-        };
-
-        explorerMeta[se] = (explorerColors[i % explorerColors.Length], stratName);
-        explorers.Add(se);
     }
 
-    var multi = new MultiExplorer(explorers, sharedMap);
-    await multi.StartAsync();
-}
-// Use StrategyExplorer for DFS/A* or RandExplorer for single random run
-else if (strategyName == "random")
-{
-    var explorer = new RandExplorer(
-        crawler,
-        new BasicEnumRandomizer<RandExplorer.Actions>()
-    );
-
-    explorer.DirectionChanged += DrawExplorerForRand;
-    explorer.PositionChanged += (s, e) =>
+    var stratName = multiStrategies[i];
+    var se = new StrategyExplorer(c, CreateStrategy(stratName), sharedMap, 3000, crawlerBag);
+    se.DirectionChanged += DrawExplorerForStrategy;
+    se.PositionChanged += (s, e) =>
     {
         try
         {
-            RestorePreviousCellSingle();
-            DrawExplorerForRand(s, e);
-            (prevX, prevY) = (e.X, e.Y);
-        }
-        catch (ArgumentOutOfRangeException) { /* Ignore console bounds errors */ }
-    };
-
-    await explorer.GetOut(3000, bag);
-}
-else
-{
-    var strategyExplorer = new StrategyExplorer(crawler, strategy, sharedMap, 3000);
-    
-    strategyExplorer.DirectionChanged += DrawExplorerForStrategy;
-    strategyExplorer.PositionChanged  += (s, e) =>
-    {
-        try
-        {
-            RestorePreviousCellSingle();
             DrawExplorerForStrategy(s, e);
-            (prevX, prevY) = (e.X, e.Y);
         }
         catch (ArgumentOutOfRangeException) { /* Ignore console bounds errors */ }
     };
-    
-    await strategyExplorer.ExploreAsync();
+
+    explorerMeta[se] = (explorerColors[i % explorerColors.Length], stratName);
+    explorers.Add(se);
 }
+
+var multi = new MultiExplorer(explorers, sharedMap);
+await multi.StartAsync();
 
 if (contest is not null)
 {
@@ -411,22 +350,6 @@ void DrawFullMapCrawler(int x, int y, Direction dir)
     }
 }
 
-void RestorePreviousCellSingle()
-{
-    if (prevX >= 0 && prevY >= 0)
-    {
-        if (IsInBounds(prevX, prevY))
-        {
-            SafeSetCursorPosition(prevX, prevY + fullMapOffsetY);
-            Console.Write(fullMap[prevX, prevY]);
-            if (canRenderSharedMap)
-            {
-                SafeSetCursorPosition(prevX, prevY + sharedMapOffsetY);
-                Console.Write(visibleMap[prevX, prevY]);
-            }
-        }
-    }
-}
 
 // Restore the tile at arbitrary coordinates (used by multi-explorer display)
 void RestoreCellAt(int x, int y)
