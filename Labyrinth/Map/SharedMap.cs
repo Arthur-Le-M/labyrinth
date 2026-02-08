@@ -42,11 +42,12 @@ public class SharedMap : ISharedMap
                     return tile; // Door is now open/traversable
                 }
                 
-                // If we're trying to add a Door but a Room already exists, keep the Room
-                // (the door was already opened by another explorer)
+                // If we're trying to add a Door but a Room already exists,
+                // accept the Door update: it's more specific information
+                // (an explorer discovered a door within the room).
                 if (existingTile is Room && tile is Door)
                 {
-                    return existingTile; // Keep it as traversable
+                    return tile; // Use the more specific Door information
                 }
 
                 // If both are doors, keep the one that's opened
